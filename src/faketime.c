@@ -23,6 +23,8 @@
 #include <stdlib.h>
 #include <time.h>
 #include <string.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 /* pthread-handling contributed by David North, TDI in version 0.7 */
 #ifdef PTHREAD
@@ -61,6 +63,8 @@ int    fake_gettimeofday(struct timeval *tv, void *tz);
 #ifdef POSIX_REALTIME
 int    fake_clock_gettime(clockid_t clk_id, struct timespec *tp);
 #endif
+
+typedef struct timespec timespec_t;
 
 /*
  * Intercepted system calls:
@@ -645,6 +649,10 @@ time_t fake_time(time_t *time_tptr) {
     static int cache_expired = 1;       /* considered expired at first call */
     static int cache_duration = 10;     /* cache fake time input for 10 seconds */
 
+    struct stat stat_result;
+    static time_t rcfile_last_touched_sec;
+    static long rcfile_last_touched_nsec;
+
 #ifdef LIMITEDFAKING
     static long callcounter = 0;
     static int limited_initialized = 0;
@@ -758,6 +766,15 @@ static pthread_mutex_t time_mutex=PTHREAD_MUTEX_INITIALIZER;
         }
         else {
             cache_expired = 0;
+        }
+    }
+
+
+    if (stat("/etc/faketimerc", &stat_result) != -1) {
+        if (rcfile_last_touched_nsec != stat_result.st_mtim.tv_nsec || rcfile_last_touched_sec != stat_result.st_mtim.tv_sec) {
+            cache_expired = 1;
+            rcfile_last_touched_nsec = stat_result.st_mtim.tv_nsec;
+            rcfile_last_touched_sec = stat_result.st_mtim.tv_sec;
         }
     }
 
