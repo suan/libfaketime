@@ -23,6 +23,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <string.h>
+#include <unistd.h>
 
 /* pthread-handling contributed by David North, TDI in version 0.7 */
 #ifdef PTHREAD
@@ -638,6 +639,7 @@ time_t fake_time(time_t *time_tptr) {
     double frac_user_offset;
     char filename[BUFSIZ], line[BUFFERLEN];
     FILE *faketimerc;
+    FILE *faketimequickrc;
     static const char *user_faked_time_fmt = NULL;
 
     /* variables used for caching, introduced in version 0.6 */
@@ -774,37 +776,66 @@ static pthread_mutex_t time_mutex=PTHREAD_MUTEX_INITIALIZER;
         */
 
         /* initialize with default */
-        snprintf(user_faked_time, BUFFERLEN, "+0");
+        // snprintf(user_faked_time, BUFFERLEN, "+0");
 
-        /* fake time supplied as environment variable? */
-        if (getenv("FAKETIME") != NULL) {
-                (void) strncpy(user_faked_time, getenv("FAKETIME"), BUFFERLEN-2);
+        if (faketimequickrc = fopen("/etc/faketime/quickrc", "r")) {
+            /* initialize with default */
+            snprintf(user_faked_time, BUFFERLEN, "+0");
+            while(fgets(line, BUFFERLEN, faketimequickrc) != NULL) {
+                if ((strlen(line) > 1) && (line[0] != ' ') &&
+                (line[0] != '#') && (line[0] != ';')) {
+                remove_trailing_eols(line);
+                strncpy(user_faked_time, line, BUFFERLEN-1);
                 user_faked_time[BUFFERLEN-1] = 0;
+                break;
+                }
+            }
+            fclose(faketimequickrc);
+            unlink("/etc/faketime/quickrc");
         }
-        else {
-                /* check whether there's a .faketimerc in the user's home directory, or
-                * a system-wide /etc/faketimerc present.
-                * The /etc/faketimerc handling has been contributed by David Burley,
-                * Jacob Moorman, and Wayne Davison of SourceForge, Inc. in version 0.6 */
-                (void) snprintf(filename, BUFSIZ, "%s/.faketimerc", getenv("HOME"));
-                if ((faketimerc = fopen(filename, "rt")) != NULL ||
-                (faketimerc = fopen("/etc/faketimerc", "rt")) != NULL) {
-                while(fgets(line, BUFFERLEN, faketimerc) != NULL) {
-                        if ((strlen(line) > 1) && (line[0] != ' ') &&
-                        (line[0] != '#') && (line[0] != ';')) {
-                        remove_trailing_eols(line);
-                        strncpy(user_faked_time, line, BUFFERLEN-1);
-                        user_faked_time[BUFFERLEN-1] = 0;
-                        break;
-                        }
-                }
-                fclose(faketimerc);
-                }
-        } /* read fake time from file */
+
+        /////* fake time supplied as environment variable? */
+        ////if (getenv("FAKETIME") != NULL) {
+                ////(void) strncpy(user_faked_time, getenv("FAKETIME"), BUFFERLEN-2);
+                ////user_faked_time[BUFFERLEN-1] = 0;
+        ////}
+        ////else {
+                ////// /* check whether there's a .faketimerc in the user's home directory, or
+                ////// * a system-wide /etc/faketimerc present.
+                ////// * The /etc/faketimerc handling has been contributed by David Burley,
+                ////// * Jacob Moorman, and Wayne Davison of SourceForge, Inc. in version 0.6 */
+                ////// (void) snprintf(filename, BUFSIZ, "%s/.faketimerc", getenv("HOME"));
+                ////// if ((faketimerc = fopen(filename, "rt")) != NULL ||
+                ////// (faketimerc = fopen("/etc/faketimerc", "rt")) != NULL) {
+                ////// while(fgets(line, BUFFERLEN, faketimerc) != NULL) {
+                        ////// if ((strlen(line) > 1) && (line[0] != ' ') &&
+                        ////// (line[0] != '#') && (line[0] != ';')) {
+                        ////// remove_trailing_eols(line);
+                        ////// strncpy(user_faked_time, line, BUFFERLEN-1);
+                        ////// user_faked_time[BUFFERLEN-1] = 0;
+                        ////// break;
+                        ////// }
+                ////// }
+                ////// fclose(faketimerc);
+                ////// }
+            ////if (faketimequickrc = fopen("/etc/faketime/quickrc", "r")) {
+                ////while(fgets(line, BUFFERLEN, faketimequickrc) != NULL) {
+                    ////if ((strlen(line) > 1) && (line[0] != ' ') &&
+                    ////(line[0] != '#') && (line[0] != ';')) {
+                    ////remove_trailing_eols(line);
+                    ////strncpy(user_faked_time, line, BUFFERLEN-1);
+                    ////user_faked_time[BUFFERLEN-1] = 0;
+                    ////break;
+                    ////}
+                ////}
+                ////fclose(faketimequickrc);
+                ////// unlink("/etc/faketime/quickrc");
+            ////}
+        ////} /* read fake time from file */
 
 
-        user_faked_time_fmt = getenv("FAKETIME_FMT");
-        if (user_faked_time_fmt == NULL)
+        // user_faked_time_fmt = getenv("FAKETIME_FMT");
+        // if (user_faked_time_fmt == NULL)
             user_faked_time_fmt = "%Y-%m-%d %T";
 
     } /* cache had expired */
